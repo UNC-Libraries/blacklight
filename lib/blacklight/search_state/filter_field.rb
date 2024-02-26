@@ -126,10 +126,15 @@ module Blacklight
         params = search_state.params
         return [] if params.blank?
 
-        f = except.include?(:filters) ? [] : [params.dig(filters_key, key)].flatten.compact
+        filter_param = params[filters_key]
+        f = []
+        if except.exclude?(:filters) && filter_param.is_a?(Hash)
+          f = [filter_param[key]].flatten.compact
+        end
         f_inclusive = [params.dig(:f_inclusive, key)] unless params.dig(inclusive_filters_key, key).blank? || except.include?(:inclusive_filters)
-        f_missing = [Blacklight::SearchState::FilterField::MISSING] if params.dig(filters_key, "-#{key}")&.any? { |v| v == Blacklight::Engine.config.blacklight.facet_missing_param }
-        f_missing = [] if except.include?(:missing)
+        if except.exclude?(:missing) && filter_param.is_a?(Hash) && filter_param["-#{key}"]&.any? { |v| v == Blacklight::Engine.config.blacklight.facet_missing_param }
+          f_missing = [Blacklight::SearchState::FilterField::MISSING]
+        end
 
         f + (f_inclusive || []) + (f_missing || [])
       end
